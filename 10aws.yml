@@ -1,0 +1,96 @@
+- hosts: localhost
+  tasks: 
+  - name: "Launching Instance for webserver 1"
+    ec2_instance:
+          region: ap-south-1
+          image_id: ami-08f63db601b82ff5f
+          state: present
+          instance_type: t2.micro
+          vpc_subnet_id: subnet-107e7778
+          security_group: sg-7eb16119
+          key_name: awsclass2020key
+          network:
+             assign_public_ip: true
+          name: ansible_httpd_1
+          aws_access_key: "{{ key }}"
+          aws_secret_key: "{{ pass }}"
+    register: X
+  
+  - name: "Launching Instance for webserver 2"
+    ec2_instance:
+          region: ap-south-1
+          image_id: ami-08f63db601b82ff5f
+          state: present
+          instance_type: t2.micro
+          vpc_subnet_id: subnet-107e7778
+          security_group: sg-7eb16119
+          key_name: awsclass2020key
+          network:
+             assign_public_ip: true
+          name: ansible_httpd_2
+          aws_access_key: "{{ key }}"
+          aws_secret_key: "{{ pass }}"
+    register: X2  
+
+  - name: "Launching Instance for Load Balancer"
+    ec2_instance:
+          region: ap-south-1
+          image_id: ami-08f63db601b82ff5f
+          state: present
+          instance_type: t2.micro
+          vpc_subnet_id: subnet-107e7778
+          security_group: sg-7eb16119
+          key_name: awsclass2020key
+          network:
+             assign_public_ip: true
+          name: ansible_lb
+          aws_access_key: "{{ key }}"
+          aws_secret_key: "{{ pass }}"
+    register: Y
+
+  - name: "Copying IP address to host file"
+    copy:
+          content: |
+             [myweb]
+             {{ X.instances[0].public_ip_address }}
+             {{ X2.instances[0].public_ip_address }}
+
+             [mylb] 
+             {{ Y.instances[0].public_ip_address }}
+          dest: "/root/hosts.txt"
+
+
+- hosts: myweb
+  tasks:
+  - name: "Installing httpd"
+    package:
+          name: "httpd"
+          state: present
+  - name: "Installing PHP"
+    package:
+          name: "php"
+          state: present
+  - name: "Copying webpage"
+    copy:
+          src: "index.php"
+          dest: "/var/www/html"
+  - name: "Starting httpd service"
+    service:
+          name: "httpd"
+          state: restarted
+
+- hosts: mylb
+  tasks:
+  - name: "Installing haproxy"
+    package:
+          name: "haproxy"
+          state: present
+  - name: "Copying haproxy configuration file"
+    template:
+          dest: "/etc/haproxy/haproxy.cfg"
+          src: "haproxy.cfg"
+  - name: "Starting haproxy service"
+    service:
+          name: "haproxy"
+          state: restarted
+
